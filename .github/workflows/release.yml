@@ -96,32 +96,11 @@ jobs:
           fi
           "$BT/apksigner" verify --verbose "ShuttleETA-${TAG}.apk"
 
-      - name: Put the APK in a zip
-        env:
-          TAG: ${{ steps.tag.outputs.tag }}
-        run: |
-          zip -j "ShuttleETA-${TAG}.zip" "ShuttleETA-${TAG}.apk"
-
-      - name: Extract the APK from the zip
-        env:
-          TAG: ${{ steps.tag.outputs.tag }}
-        run: |
-          rm -f "ShuttleETA-${TAG}.apk"
-          mkdir -p release-out
-          unzip -o "ShuttleETA-${TAG}.zip" -d release-out
-          ls -l release-out
-
-      - name: Keep the zip as a workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ShuttleETA-${{ steps.tag.outputs.tag }}
-          path: ShuttleETA-${{ steps.tag.outputs.tag }}.zip
-
       - name: Create or update the GitHub release
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          APK="release-out/ShuttleETA-${TAG}.apk"
+          APK="ShuttleETA-${TAG}.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
           else
