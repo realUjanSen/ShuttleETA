@@ -1,0 +1,22 @@
+<resources>
+    <!-- Oldish dark gray theme inspired by pre-Material days -->
+    <style name="Base.Theme.ShuttleETA" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:colorBackground">@color/app_background</item>
+        <item name="android:textColorPrimary">@color/app_text_primary</item>
+        <item name="android:textColorSecondary">@color/app_text_secondary</item>
+        <!-- Use a simple button style: rectangular with slight corner radius -->
+        <item name="android:buttonStyle">@style/OldishButton</item>
+    </style>
+
+    <style name="Theme.ShuttleETA" parent="Base.Theme.ShuttleETA" />
+
+    <style name="OldishButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/oldish_button_bg</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:paddingLeft">12dp</item>
+        <item name="android:paddingRight">12dp</item>
+        <item name="android:minHeight">40dp</item>
+    </style>
+    <style name="AppButton" parent="OldishButton" />
+</resources>

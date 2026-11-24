@@ -1,0 +1,95 @@
+name: Release APK
+
+# Runs when you push a version tag such as v1.0.0. Keep committing normally;
+# only tag pushes (or a manual run) build and publish a release.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, for example v1.0.0 (must already exist on GitHub)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Work out the tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease \
+            -PversionName="${{ steps.tag.outputs.tag }}" \
+            -PversionCode="${GITHUB_RUN_NUMBER}"
+
+      - name: Name the APK
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # Gradle already signs the release build with the committed release key.
+          cp app/build/outputs/apk/release/app-release.apk "ShuttleETA-${TAG}.apk"
+          "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner" verify --verbose "ShuttleETA-${TAG}.apk"
+
+      - name: Put the APK in a zip (build artifact)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          zip -j "ShuttleETA-${TAG}.zip" "ShuttleETA-${TAG}.apk"
+
+      - name: Extract the APK from the zip
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          rm -f "ShuttleETA-${TAG}.apk"
+          mkdir -p release-out
+          unzip -o "ShuttleETA-${TAG}.zip" -d release-out
+          ls -l release-out
+
+      - name: Keep the zip as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShuttleETA-${{ steps.tag.outputs.tag }}
+          path: ShuttleETA-${{ steps.tag.outputs.tag }}.zip
+
+      - name: Create or update the GitHub release
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          APK="release-out/ShuttleETA-${TAG}.apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --title "Shuttle ETA $TAG" \
+              --generate-notes \
+              --verify-tag
+          fi

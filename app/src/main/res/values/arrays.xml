@@ -1,0 +1,6 @@
+<resources>
+    <string-array name="routes">
+        <item>Morning (Home to Office)</item>
+        <item>Evening (Office to Home)</item>
+    </string-array>
+</resources>

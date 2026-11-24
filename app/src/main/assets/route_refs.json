@@ -1,0 +1,21 @@
+{
+  "morning": {
+    "total_m": 21639.40141773021,
+    "n_bins": 181
+  },
+  "evening": {
+    "total_m": 20710.143168876093,
+    "n_bins": 173
+  },
+  "bin_meters": 120.0,
+  "features": [
+    "route_type",
+    "start_minute",
+    "weekday",
+    "progress_ratio",
+    "offroute_m",
+    "speed_kph",
+    "global_bin_speed_kph",
+    "bin_session_support"
+  ]
+}
