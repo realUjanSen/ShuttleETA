@@ -90,7 +90,12 @@ public class MainActivity extends AppCompatActivity {
 
         Configuration.getInstance().load(getApplicationContext(),
                 getSharedPreferences("osmdroid", MODE_PRIVATE));
-        Configuration.getInstance().setUserAgentValue(getPackageName());
+        // OpenStreetMap blocks tile requests without an identifying User-Agent (HTTP 403).
+        Configuration.getInstance().setUserAgentValue(
+                "ShuttleETA-Android/1.0 (+https://github.com/realUjanSen/ShuttleETA)");
+        // Keep downloaded tiles in the app cache so the map works again without refetching.
+        Configuration.getInstance().setOsmdroidBasePath(new java.io.File(getCacheDir(), "osmdroid"));
+        Configuration.getInstance().setOsmdroidTileCache(new java.io.File(getCacheDir(), "osmdroid/tiles"));
 
         routeSpinner = findViewById(R.id.routeSpinner);
         timeButton = findViewById(R.id.timeButton);
