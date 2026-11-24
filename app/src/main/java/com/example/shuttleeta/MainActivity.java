@@ -29,7 +29,7 @@ import com.example.shuttleeta.model.RouteProfile;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.events.MapEventsReceiver;
-import org.osmdroid.tileprovider.tilesource.XYTileSource;
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.views.overlay.CopyrightOverlay;
 import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
@@ -92,8 +92,8 @@ public class MainActivity extends AppCompatActivity {
         Configuration.getInstance().load(getApplicationContext(),
                 getSharedPreferences("osmdroid", MODE_PRIVATE));
         // OpenStreetMap blocks tile requests without an identifying User-Agent (HTTP 403).
-        Configuration.getInstance().setUserAgentValue(
-                "ShuttleETA-Android/1.0 (+https://github.com/realUjanSen/ShuttleETA)");
+        // Format recommended by OSM's sysadmins: reverse-DNS app name plus version.
+        Configuration.getInstance().setUserAgentValue("org.github.realujansen.shuttleeta/1.0.3");
         // Keep downloaded tiles in the app cache so the map works again without refetching.
         Configuration.getInstance().setOsmdroidBasePath(new java.io.File(getCacheDir(), "osmdroid"));
         Configuration.getInstance().setOsmdroidTileCache(new java.io.File(getCacheDir(), "osmdroid/tiles"));
@@ -114,15 +114,7 @@ public class MainActivity extends AppCompatActivity {
         resultText = findViewById(R.id.resultText);
         map = findViewById(R.id.mapView);
 
-        // OpenStreetMap's own tile server returns 403 to this app, so use CARTO's basemap
-        // (built from OpenStreetMap data, free with attribution).
-        map.setTileSource(new XYTileSource(
-                "CartoVoyager", 0, 19, 256, ".png",
-                new String[]{
-                        "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
-                        "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
-                        "https://c.basemaps.cartocdn.com/rastertiles/voyager/"},
-                "© OpenStreetMap contributors © CARTO"));
+        map.setTileSource(TileSourceFactory.MAPNIK);
         map.getOverlays().add(new CopyrightOverlay(this));
         map.setMultiTouchControls(true);
         map.getOverlays().add(0, new MapEventsOverlay(new MapEventsReceiver() {
