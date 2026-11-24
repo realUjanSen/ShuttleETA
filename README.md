@@ -1,5 +1,5 @@
 # Shuttle ETA (Android)
-Hello!
+
 Android version of the web ETA predictor (`eta_model_app.html`). Same model, same route
 bins, same blending as `predict_eta.py`, except that the web app's session blend is not used.
 
@@ -40,3 +40,24 @@ into `app/src/main/assets`:
     java -cp build PredictorCheck app/src/main/assets
 
 The output matches `predict_eta.py` (run without `--session-id`) for the same inputs.
+
+## Releasing (GitHub Actions)
+
+The workflow in `.github/workflows/release.yml` builds and publishes the APK when you push a tag.
+It needs no secrets. The release key is committed at `keystore/release.keystore`, with its
+passwords in `app/build.gradle.kts`. This is deliberate, since the project is public and MIT
+licensed. Anyone can sign builds with this key, so only install APKs from the official releases.
+
+### Making a release
+Commit as usual, then tag the commit you want to release:
+
+    git tag v1.0.0
+    git push origin v1.0.0
+
+The workflow then builds the APK, signs it, puts it in `ShuttleETA-v1.0.0.zip`, extracts the APK
+from that zip, and attaches `ShuttleETA-v1.0.0.apk` to a new GitHub release with generated notes.
+The zip also stays available as a workflow artifact.
+
+To re-run a release for an existing tag, use **Actions → Release APK → Run workflow** and enter the tag.
+
+Each run sets `versionCode` to the workflow run number, so installed copies can always be upgraded.

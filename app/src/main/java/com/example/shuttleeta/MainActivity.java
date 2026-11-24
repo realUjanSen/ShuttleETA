@@ -1,6 +1,14 @@
 package com.example.shuttleeta;
 
+import android.app.AlertDialog;
 import android.app.TimePickerDialog;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Build;
+import android.provider.Settings;
+import android.widget.Toast;
+import androidx.core.content.FileProvider;
+import java.io.File;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -56,7 +64,7 @@ public class MainActivity extends AppCompatActivity {
     private MapView map;
     private Spinner routeSpinner;
     private Button timeButton, startModeButton, destModeButton, tapMethodButton, sliderMethodButton;
-    private Button predictButton, clearDestButton;
+    private Button predictButton, clearDestButton, checkUpdateButton;
     private SeekBar routeSlider;
     private TextView sliderLabel, statusText, resultText;
 
@@ -92,6 +100,8 @@ public class MainActivity extends AppCompatActivity {
         sliderMethodButton = findViewById(R.id.sliderMethodButton);
         predictButton = findViewById(R.id.predictButton);
         clearDestButton = findViewById(R.id.clearDestButton);
+        checkUpdateButton = findViewById(R.id.checkUpdateButton);
+        checkUpdateButton.setOnClickListener(v -> checkForUpdate());
         routeSlider = findViewById(R.id.routeSlider);
         sliderLabel = findViewById(R.id.sliderLabel);
         statusText = findViewById(R.id.statusText);
@@ -365,6 +375,67 @@ public class MainActivity extends AppCompatActivity {
         }
         resultText.setText(sb.toString().trim());
         statusText.setText("Prediction ready.");
+    }
+
+    private void checkForUpdate() {
+        statusText.setText("Checking GitHub for a new release...");
+        background.execute(() -> {
+            try {
+                Updater.Release release = Updater.fetchLatest();
+                String current = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+                runOnUiThread(() -> {
+                    if (release == null) {
+                        statusText.setText("The latest release has no APK attached.");
+                    } else if (VersionCompare.compare(release.tag, current) > 0) {
+                        askToInstall(release);
+                    } else {
+                        statusText.setText("Up to date (version " + current + ").");
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> statusText.setText("Update check failed: " + e.getMessage()));
+            }
+        });
+    }
+
+    private void askToInstall(Updater.Release release) {
+        new AlertDialog.Builder(this)
+                .setTitle("Update available")
+                .setMessage("Version " + release.tag + " is available. Download and install it?")
+                .setPositiveButton("Download", (d, w) -> downloadAndInstall(release))
+                .setNegativeButton("Later", null)
+                .show();
+    }
+
+    private void downloadAndInstall(Updater.Release release) {
+        File dir = new File(getCacheDir(), "updates");
+        dir.mkdirs();
+        File apk = new File(dir, release.apkName);
+        statusText.setText("Downloading " + release.tag + "...");
+        background.execute(() -> {
+            try {
+                Updater.download(release.apkUrl, apk, percent ->
+                        runOnUiThread(() -> statusText.setText("Downloading " + release.tag + "... " + percent + "%")));
+                runOnUiThread(() -> installApk(apk));
+            } catch (Exception e) {
+                runOnUiThread(() -> statusText.setText("Download failed: " + e.getMessage()));
+            }
+        });
+    }
+
+    private void installApk(File apk) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getPackageManager().canRequestPackageInstalls()) {
+            statusText.setText("Allow installs from this app, then press Check for update again.");
+            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setDataAndType(uri, "application/vnd.android.package-archive");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        statusText.setText("Downloaded. Confirm the install. Tap Open when it finishes.");
+        startActivity(intent);
     }
 
     @Override

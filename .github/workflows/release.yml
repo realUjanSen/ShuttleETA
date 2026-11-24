@@ -1,7 +1,7 @@
 name: Build and Release APK
 
-# Every push builds the APK and publishes a release with it.
-# Pushes to branches get the next version tag (v1.0.1, v1.0.2, ...). Pushes of a tag publish under that tag.
+# Every push (any branch or tag) builds the APK and publishes a release with it.
+# Tag pushes such as v1.0.0 publish a normal release; other pushes publish a dev-<commit> prerelease.
 on:
   push:
   workflow_dispatch:
@@ -32,29 +32,16 @@ jobs:
           REF_NAME: ${{ github.ref_name }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
-          set -euo pipefail
           if [ "$EVENT" = "workflow_dispatch" ] && [ -n "$INPUT_TAG" ]; then
             TAG="$INPUT_TAG"; KIND=tag
           elif [[ "$REF" == refs/tags/* ]]; then
             TAG="$REF_NAME"; KIND=tag
           else
-            # Next patch version after the latest vX.Y.Z tag, e.g. v1.0.1 -> v1.0.2.
-            LATEST=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -1)
-            if [ -z "$LATEST" ]; then
-              TAG="v1.0.1"
-            else
-              IFS=. read -r MAJ MIN PAT <<< "${LATEST#v}"
-              TAG="v${MAJ}.${MIN}.$((PAT + 1))"
-            fi
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag "$TAG" "$GITHUB_SHA"
-            git push origin "$TAG"
-            KIND=tag
+            TAG="dev-$(git rev-parse --short HEAD)"; KIND=dev
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "kind=$KIND" >> "$GITHUB_OUTPUT"
-          echo "Building $TAG"
+          echo "Building $TAG ($KIND)"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -76,33 +63,43 @@ jobs:
         env:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          set -euo pipefail
-          OUT_DIR=app/build/outputs/apk/release
-          ls -l "$OUT_DIR"
-          APK=$(ls "$OUT_DIR"/*.apk | head -1)
-          echo "Using $APK"
-          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          if [[ "$APK" == *unsigned* ]]; then
-            # Gradle left the build unsigned, so sign it with the committed release key.
-            "$BT/zipalign" -f -p 4 "$APK" aligned.apk
-            "$BT/apksigner" sign \
-              --ks keystore/release.keystore \
-              --ks-key-alias shuttleeta \
-              --ks-pass pass:shuttleeta-release \
-              --key-pass pass:shuttleeta-release \
-              --out "ShuttleETA-${TAG}.apk" aligned.apk
-          else
-            cp "$APK" "ShuttleETA-${TAG}.apk"
-          fi
-          "$BT/apksigner" verify --verbose "ShuttleETA-${TAG}.apk"
+          # Gradle signs the release build with the committed release key.
+          cp app/build/outputs/apk/release/app-release.apk "ShuttleETA-${TAG}.apk"
+          "$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/apksigner" verify --verbose "ShuttleETA-${TAG}.apk"
+
+      - name: Put the APK in a zip
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          zip -j "ShuttleETA-${TAG}.zip" "ShuttleETA-${TAG}.apk"
+
+      - name: Extract the APK from the zip
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          rm -f "ShuttleETA-${TAG}.apk"
+          mkdir -p release-out
+          unzip -o "ShuttleETA-${TAG}.zip" -d release-out
+          ls -l release-out
+
+      - name: Keep the zip as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShuttleETA-${{ steps.tag.outputs.tag }}
+          path: ShuttleETA-${{ steps.tag.outputs.tag }}.zip
 
       - name: Create or update the GitHub release
         env:
           TAG: ${{ steps.tag.outputs.tag }}
+          KIND: ${{ steps.tag.outputs.kind }}
+          SHA: ${{ github.sha }}
         run: |
-          APK="ShuttleETA-${TAG}.apk"
+          APK="release-out/ShuttleETA-${TAG}.apk"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$APK" --clobber
-          else
+          elif [ "$KIND" = "tag" ]; then
             gh release create "$TAG" "$APK" --title "Shuttle ETA $TAG" --generate-notes --verify-tag
+          else
+            gh release create "$TAG" "$APK" --target "$SHA" --prerelease \
+              --title "Dev build $TAG" --notes "Automatic build of commit $SHA"
           fi

@@ -3,6 +3,15 @@ plugins {
 }
 
 android {
+    // Public release key, committed on purpose (MIT project). Anyone can sign with it.
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file("keystore/release.keystore")
+            storePassword = "shuttleeta-release"
+            keyAlias = "shuttleeta"
+            keyPassword = "shuttleeta-release"
+        }
+    }
     namespace = "com.example.shuttleeta"
     compileSdk {
         version = release(36) {
@@ -14,8 +23,9 @@ android {
         applicationId = "com.example.shuttleeta"
         minSdk = 27
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        // Set by the release workflow (-PversionCode=<run number> -PversionName=<tag>); defaults for local builds.
+        versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (project.findProperty("versionName") as String?) ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -23,6 +33,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
