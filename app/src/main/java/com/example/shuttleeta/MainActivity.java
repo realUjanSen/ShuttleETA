@@ -29,7 +29,8 @@ import com.example.shuttleeta.model.RouteProfile;
 
 import org.osmdroid.config.Configuration;
 import org.osmdroid.events.MapEventsReceiver;
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.tileprovider.tilesource.XYTileSource;
+import org.osmdroid.views.overlay.CopyrightOverlay;
 import org.osmdroid.util.BoundingBox;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
@@ -113,7 +114,16 @@ public class MainActivity extends AppCompatActivity {
         resultText = findViewById(R.id.resultText);
         map = findViewById(R.id.mapView);
 
-        map.setTileSource(TileSourceFactory.MAPNIK);
+        // OpenStreetMap's own tile server returns 403 to this app, so use CARTO's basemap
+        // (built from OpenStreetMap data, free with attribution).
+        map.setTileSource(new XYTileSource(
+                "CartoVoyager", 0, 19, 256, ".png",
+                new String[]{
+                        "https://a.basemaps.cartocdn.com/rastertiles/voyager/",
+                        "https://b.basemaps.cartocdn.com/rastertiles/voyager/",
+                        "https://c.basemaps.cartocdn.com/rastertiles/voyager/"},
+                "© OpenStreetMap contributors © CARTO"));
+        map.getOverlays().add(new CopyrightOverlay(this));
         map.setMultiTouchControls(true);
         map.getOverlays().add(0, new MapEventsOverlay(new MapEventsReceiver() {
             @Override
