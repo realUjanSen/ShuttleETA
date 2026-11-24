@@ -7,7 +7,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 import android.widget.Toast;
-import androidx.core.content.FileProvider;
+import com.example.shuttleeta.Installer;
 import java.io.File;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -435,12 +435,12 @@ public class MainActivity extends AppCompatActivity {
                     Uri.parse("package:" + getPackageName())));
             return;
         }
-        Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", apk);
-        Intent intent = new Intent(Intent.ACTION_VIEW);
-        intent.setDataAndType(uri, "application/vnd.android.package-archive");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-        statusText.setText("Downloaded. Confirm the install. Tap Open when it finishes.");
-        startActivity(intent);
+        try {
+            Installer.install(this, apk);
+            statusText.setText("Installing... confirm if Android asks.");
+        } catch (IOException | RuntimeException e) {
+            statusText.setText("Install failed: " + e.getMessage());
+        }
     }
 
     @Override
